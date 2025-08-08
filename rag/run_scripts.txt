@@ -1,0 +1,39 @@
+pip install --upgrade pip
+pip install -r requirements.txt
+
+##BUILD DB
+
+python build_rag_index.py --dataset-path ../musique_dataset
+
+##START RAG SERVER
+
+python rag_server.py
+
+
+###TEST system
+python rag_server.py
+
+
+##run SERVER
+cd /workspace/anushka/data/database
+python rag_server.py --index-path musique_index --port 2222
+
+
+
+export MODEL_PATH="/workspace/anushka/models/Qwen3-4B"
+export MUSIQUE_RAG_SERVER="http://localhost:2222"
+export CUDA_VISIBLE_DEVICES=3
+
+# Run training with accelerate
+accelerate launch --num-processes 1 --config-file verifiers/configs/zero3.yaml verifiers/examples/grpo/train_musique_xml.py
+
+pkill -f vf-vllm
+
+# Restart vLLM server on GPU 7 with same tokenizer settings
+CUDA_VISIBLE_DEVICES=6 vf-vllm \
+  --model /workspace/anushka/models/Qwen3-4B \
+  --host 127.0.0.1 --port 8000 \
+  --trust-remote-code --enforce-eager \
+  --max-model-len 4096 \
+  --enable-auto-tool-choice \
+  --tool-call-parser llama3_json &
